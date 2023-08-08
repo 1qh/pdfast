@@ -1,6 +1,7 @@
 import os
 import re
 
+from dotenv import load_dotenv
 from pypdf import PdfReader
 
 TAB_SIZE = 4
@@ -74,12 +75,11 @@ class BookmarksExtractor:
     def __call__(self, postprocess: bool = True):
         toc = self.toc
         if postprocess:
-            # start from toc string
-            target = '目次'
+            load_dotenv()
+
+            target = os.getenv('TOCSTART', 'Table of Contents')
             start = next((i for i, l in enumerate(toc) if target in l), 0)
             toc = toc[start:]
-
-            # remove lines with '...'
             toc = [i for i in toc if '...' not in i]
 
             # find lines with number pattern
@@ -87,6 +87,7 @@ class BookmarksExtractor:
             toc = list(filter(pattern.search, toc))
 
             toc = [i.replace('  ', ' ') for i in toc]
+
             # level indent based on number pattern
             num = [i.strip()[1] for i in toc]
             level = [
@@ -94,7 +95,7 @@ class BookmarksExtractor:
                 for i in [l.split()[0].split('.') for l in toc]
             ]
             for i, l in enumerate(toc):
-                if '目次' in l:
+                if target in l:
                     continue
                 cur_lv = level[i]
                 pre_lv = level[i - 1] if i > 0 else None
@@ -106,7 +107,5 @@ class BookmarksExtractor:
                     level[i] = pre_lv
                     if cur < pre:
                         level[i] += 1
-
                 toc[i] = level[i] * TAB_SIZE * ' ' + l
-
         return '\n'.join(toc)
